@@ -13,7 +13,8 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.json({ 
     status: 'online',
-    message: 'Fábrica de Apps Backend funcionando!' 
+    message: 'Fábrica de Apps Backend funcionando!',
+    features: ['Claude API', 'Gemini Fallback', 'GitHub Actions']
   });
 });
 
@@ -26,13 +27,15 @@ app.post('/api/generate-app', async (req, res) => {
       return res.status(400).json({ error: 'appIdea é obrigatório' });
     }
 
-    if (!claudeApiKey) {
-      return res.status(400).json({ error: 'claudeApiKey é obrigatório' });
-    }
+    // 1. Gerar código com Claude ou Gemini (com fallback)
+    console.log('Gerando código Flutter...');
+    const flutterCode = await generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey);
 
-    // 1. Gerar código com Claude
-    console.log('Gerando código Flutter com Claude...');
-    const flutterCode = await generateFlutterCode(appIdea, trialDays, claudeApiKey);
+    if (!flutterCode) {
+      return res.status(500).json({ 
+        error: 'Falha ao gerar código com Claude e Gemini' 
+      });
+    }
 
     // 2. Criar repositório no GitHub
     console.log('Criando repositório no GitHub...');
@@ -59,13 +62,48 @@ app.post('/api/generate-app', async (req, res) => {
   }
 });
 
-// Função para gerar código Flutter com Claude
-async function generateFlutterCode(appIdea, trialDays, claudeApiKey) {
+// Função para gerar código com fallback Claude → Gemini
+async function generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey) {
+  // Tenta Claude primeiro
+  try {
+    console.log('Tentando gerar com Claude...');
+    const code = await generateWithClaude(appIdea, trialDays, claudeApiKey);
+    if (code) {
+      console.log('✅ Código gerado com Claude!');
+      return code;
+    }
+  } catch (error) {
+    console.log('❌ Claude falhou:', error.message);
+  }
+
+  // Se Claude falhar, tenta Gemini
+  try {
+    console.log('Tentando gerar com Gemini (fallback)...');
+    const code = await generateWithGemini(appIdea, trialDays);
+    if (code) {
+      console.log('✅ Código gerado com Gemini!');
+      return code;
+    }
+  } catch (error) {
+    console.log('❌ Gemini falhou:', error.message);
+  }
+
+  return null;
+}
+
+// Gerar com Claude
+async function generateWithClaude(appIdea, trialDays, apiKey) {
+  const key = apiKey || process.env.CLAUDE_API_KEY;
+  
+  if (!key) {
+    throw new Error('Claude API key não fornecida');
+  }
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': claudeApiKey,
+      'x-api-key': key,
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
@@ -73,16 +111,71 @@ async function generateFlutterCode(appIdea, trialDays, claudeApiKey) {
       max_tokens: 4096,
       messages: [{
         role: 'user',
-        content: `Gere um app Flutter COMPLETO para: ${appIdea}
-        
-Com sistema de trial de ${trialDays} dias integrado.
-Responda APENAS com o código completo do main.dart.`
+        content: getPrompt(appIdea, trialDays)
       }]
     })
   });
 
+  if (!response.ok) {
+    throw new Error(`Claude API error: ${response.status}`);
+  }
+
   const data = await response.json();
   return data.content[0].text;
+}
+
+// Gerar com Gemini
+async function generateWithGemini(appIdea, trialDays) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('Gemini API key não configurada');
+  }
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: getPrompt(appIdea, trialDays)
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
+}
+
+// Prompt unificado
+function getPrompt(appIdea, trialDays) {
+  return `Gere um app Flutter COMPLETO e FUNCIONAL para: ${appIdea}
+
+IMPORTANTE - Sistema de Trial de ${trialDays} dias:
+
+Adicione estas dependências no pubspec.yaml:
+- shared_preferences: ^2.2.2
+- crypto: ^3.0.3
+
+Integre o sistema de licenciamento com:
+- Trial de ${trialDays} dias
+- Banner mostrando dias restantes
+- Tela de bloqueio quando expirar
+- Validação de chave de licença (formato: XXXX-XXXX-XXXX-XXXX)
+
+Use Material Design 3, código limpo e funcional.
+Responda APENAS com o código completo do main.dart.`;
 }
 
 // Função para criar repositório no GitHub
@@ -110,6 +203,9 @@ async function commitFlutterCode(repoUrl, code) {
   });
 
   const [owner, repo] = repoUrl.split('/').slice(-2);
+
+  // Aguarda repo estar pronto
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
   // Criar pubspec.yaml
   await octokit.rest.repos.createOrUpdateFileContents({
@@ -143,7 +239,7 @@ async function commitFlutterCode(repoUrl, code) {
 function getPubspecContent() {
   return `name: generated_app
 description: App gerado automaticamente
-version: 1.0.0
+version: 1.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -202,4 +298,7 @@ jobs:
 
 app.listen(PORT, () => {
   console.log(`🚀 Backend rodando na porta ${PORT}`);
+  console.log(`✅ Claude API: ${process.env.CLAUDE_API_KEY ? 'Configurada' : 'Não configurada'}`);
+  console.log(`✅ Gemini API: ${process.env.GEMINI_API_KEY ? 'Configurada' : 'Não configurada'}`);
+  console.log(`✅ GitHub Token: ${process.env.GITHUB_TOKEN ? 'Configurado' : 'Não configurado'}`);
 });
