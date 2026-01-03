@@ -186,12 +186,14 @@ async function createGitHubRepo(appIdea) {
 
   const repoName = `app-${Date.now()}`;
   
-  const { data } = await octokit.rest.repos.createForAuthenticatedUser({
-    name: repoName,
-    description: `App gerado: ${appIdea}`,
-    auto_init: true,
-    private: false
-  });
+  const shortDescription = `App: ${appIdea.substring(0, 50)}...`;
+
+const { data } = await octokit.rest.repos.createForAuthenticatedUser({
+  name: repoName,
+  description: shortDescription,
+  auto_init: true,
+  private: false
+});
 
   return data.html_url;
 }
