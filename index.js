@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
   res.json({ 
     status: 'online',
     message: 'Fábrica de Apps Backend funcionando!',
-    features: ['Claude API', 'Gemini Fallback', 'GitHub Actions']
+    features: ['Claude API', 'Gemini Fallback', 'GitHub Actions', 'Estrutura Flutter Completa']
   });
 });
 
@@ -27,7 +27,6 @@ app.post('/api/generate-app', async (req, res) => {
       return res.status(400).json({ error: 'appIdea é obrigatório' });
     }
 
-    // 1. Gerar código com Claude ou Gemini (com fallback)
     console.log('Gerando código Flutter...');
     const flutterCode = await generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey);
 
@@ -37,20 +36,17 @@ app.post('/api/generate-app', async (req, res) => {
       });
     }
 
-    // 2. Criar repositório no GitHub
     console.log('Criando repositório no GitHub...');
-    const repoUrl = await createGitHubRepo(appIdea);
+    const repoData = await createGitHubRepo(appIdea);
 
-    // 3. Fazer commit do código
-    console.log('Fazendo commit do código...');
-    await commitFlutterCode(repoUrl, flutterCode);
+    console.log('Criando estrutura completa do Flutter...');
+    await createCompleteFlutterStructure(repoData, flutterCode, appIdea);
 
-    // 4. Retornar info
     res.json({
       success: true,
       message: 'App criado! GitHub Actions vai compilar o APK em 10-15 minutos.',
-      repoUrl: repoUrl,
-      actionsUrl: `${repoUrl}/actions`
+      repoUrl: repoData.html_url,
+      actionsUrl: `${repoData.html_url}/actions`
     });
 
   } catch (error) {
@@ -64,7 +60,6 @@ app.post('/api/generate-app', async (req, res) => {
 
 // Função para gerar código com fallback Claude → Gemini
 async function generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey) {
-  // Tenta Claude primeiro
   try {
     console.log('Tentando gerar com Claude...');
     const code = await generateWithClaude(appIdea, trialDays, claudeApiKey);
@@ -76,7 +71,6 @@ async function generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey)
     console.log('❌ Claude falhou:', error.message);
   }
 
-  // Se Claude falhar, tenta Gemini
   try {
     console.log('Tentando gerar com Gemini (fallback)...');
     const code = await generateWithGemini(appIdea, trialDays);
@@ -178,69 +172,75 @@ Use Material Design 3, código limpo e funcional.
 Responda APENAS com o código completo do main.dart.`;
 }
 
-// Função para criar repositório no GitHub
+// Criar repositório
 async function createGitHubRepo(appIdea) {
-  const octokit = new Octokit({ 
-    auth: process.env.GITHUB_TOKEN 
-  });
-
-  const repoName = `app-${Date.now()}`;
+  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
   
-  const shortDescription = `App: ${appIdea.substring(0, 50)}...`;
-
-const { data } = await octokit.rest.repos.createForAuthenticatedUser({
-  name: repoName,
-  description: shortDescription,
-  auto_init: true,
-  private: false
-});
-
-  return data.html_url;
-}
-
-// Função para fazer commit do código
-async function commitFlutterCode(repoUrl, code) {
-  const octokit = new Octokit({ 
-    auth: process.env.GITHUB_TOKEN 
+  const repoName = `app-${Date.now()}`;
+  const shortDesc = `App: ${appIdea.substring(0, 50)}...`;
+  
+  const { data } = await octokit.rest.repos.createForAuthenticatedUser({
+    name: repoName,
+    description: shortDesc,
+    auto_init: false,
+    private: false
   });
 
-  const [owner, repo] = repoUrl.split('/').slice(-2);
-
-  // Aguarda repo estar pronto
   await new Promise(resolve => setTimeout(resolve, 2000));
-
-  // Criar pubspec.yaml
-  await octokit.rest.repos.createOrUpdateFileContents({
-    owner,
-    repo,
-    path: 'pubspec.yaml',
-    message: 'Add pubspec.yaml',
-    content: Buffer.from(getPubspecContent()).toString('base64')
-  });
-
-  // Criar main.dart
-  await octokit.rest.repos.createOrUpdateFileContents({
-    owner,
-    repo,
-    path: 'lib/main.dart',
-    message: 'Add main.dart',
-    content: Buffer.from(code).toString('base64')
-  });
-
-  // Criar GitHub Action
-  await octokit.rest.repos.createOrUpdateFileContents({
-    owner,
-    repo,
-    path: '.github/workflows/build.yml',
-    message: 'Add build workflow',
-    content: Buffer.from(getWorkflowContent()).toString('base64')
-  });
+  
+  return data;
 }
 
-// Template do pubspec.yaml
-function getPubspecContent() {
-  return `name: generated_app
-description: App gerado automaticamente
+// Criar estrutura COMPLETA do Flutter
+async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
+  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+  const [owner, repo] = [repoData.owner.login, repoData.name];
+
+  const files = [
+    // Root files
+    { path: 'pubspec.yaml', content: getPubspecContent(appIdea) },
+    { path: 'analysis_options.yaml', content: getAnalysisOptions() },
+    { path: '.gitignore', content: getGitignore() },
+    { path: 'README.md', content: getReadme(appIdea) },
+    
+    // Lib
+    { path: 'lib/main.dart', content: mainDartCode },
+    
+    // Android structure
+    { path: 'android/app/build.gradle', content: getAppBuildGradle() },
+    { path: 'android/build.gradle', content: getRootBuildGradle() },
+    { path: 'android/gradle.properties', content: getGradleProperties() },
+    { path: 'android/settings.gradle', content: getSettingsGradle() },
+    { path: 'android/app/src/main/AndroidManifest.xml', content: getAndroidManifest(appIdea) },
+    { path: 'android/app/src/main/kotlin/com/example/app/MainActivity.kt', content: getMainActivity() },
+    { path: 'android/gradle/wrapper/gradle-wrapper.properties', content: getGradleWrapperProperties() },
+    
+    // GitHub Actions (COM V4!)
+    { path: '.github/workflows/build.yml', content: getWorkflowContent() },
+  ];
+
+  for (const file of files) {
+    try {
+      await octokit.rest.repos.createOrUpdateFileContents({
+        owner,
+        repo,
+        path: file.path,
+        message: `Add ${file.path}`,
+        content: Buffer.from(file.content).toString('base64')
+      });
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error(`Erro ao criar ${file.path}:`, error.message);
+    }
+  }
+}
+
+// ===== TEMPLATES DOS ARQUIVOS =====
+
+function getPubspecContent(appName) {
+  const cleanName = appName.substring(0, 30).toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return `name: ${cleanName}
+description: ${appName.substring(0, 50)}
 version: 1.0.0+1
 
 environment:
@@ -252,12 +252,191 @@ dependencies:
   shared_preferences: ^2.2.2
   crypto: ^3.0.3
 
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
 flutter:
   uses-material-design: true
 `;
 }
 
-// Template do GitHub Actions
+function getAnalysisOptions() {
+  return `include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: false
+`;
+}
+
+function getGitignore() {
+  return `.DS_Store
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+.gradle/
+*.iml
+*.ipr
+*.iws
+.idea/
+`;
+}
+
+function getReadme(appIdea) {
+  return `# ${appIdea.substring(0, 50)}
+
+App gerado automaticamente pela Fábrica de Apps.
+
+## Como usar
+
+1. Clone este repositório
+2. Execute \`flutter pub get\`
+3. Execute \`flutter run\`
+
+## Build APK
+
+\`\`\`bash
+flutter build apk --release
+\`\`\`
+`;
+}
+
+function getAppBuildGradle() {
+  return `plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace "com.example.app"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.app"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source "../.."
+}
+`;
+}
+
+function getRootBuildGradle() {
+  return `buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.1.0"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+`;
+}
+
+function getGradleProperties() {
+  return `org.gradle.jvmargs=-Xmx4G
+android.useAndroidX=true
+android.enableJetifier=true
+`;
+}
+
+function getSettingsGradle() {
+  return `pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+    id "com.android.application" version "8.1.0" apply false
+    id "org.jetbrains.kotlin.android" version "1.9.0" apply false
+}
+
+include ":app"
+`;
+}
+
+function getAndroidManifest(appName) {
+  return `<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:label="${appName.substring(0, 30)}"
+        android:name="\${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <uses-permission android:name="android.permission.INTERNET"/>
+</manifest>
+`;
+}
+
+function getMainActivity() {
+  return `package com.example.app
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity()
+`;
+}
+
+function getGradleWrapperProperties() {
+  return `distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+distributionUrl=https\\://services.gradle.org/distributions/gradle-8.3-all.zip
+`;
+}
+
 function getWorkflowContent() {
   return `name: Build APK
 
@@ -291,7 +470,7 @@ jobs:
       run: flutter build apk --release
     
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: app-release
         path: build/app/outputs/flutter-apk/app-release.apk
