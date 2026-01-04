@@ -9,16 +9,14 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Rota de teste
 app.get('/', (req, res) => {
   res.json({ 
     status: 'online',
     message: 'Fábrica de Apps Backend funcionando!',
-    features: ['Claude API', 'Gemini Fallback', 'GitHub Actions', 'Estrutura Flutter Completa']
+    features: ['Claude API', 'Gemini Fallback', 'GitHub Actions', 'Estrutura Flutter Completa', 'Markdown Cleanup']
   });
 });
 
-// Rota para gerar app
 app.post('/api/generate-app', async (req, res) => {
   try {
     const { appIdea, trialDays, claudeApiKey } = req.body;
@@ -58,7 +56,6 @@ app.post('/api/generate-app', async (req, res) => {
   }
 });
 
-// Função para gerar código com fallback Claude → Gemini
 async function generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey) {
   try {
     console.log('Tentando gerar com Claude...');
@@ -85,7 +82,6 @@ async function generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey)
   return null;
 }
 
-// Gerar com Claude
 async function generateWithClaude(appIdea, trialDays, apiKey) {
   const key = apiKey || process.env.CLAUDE_API_KEY;
   
@@ -115,10 +111,16 @@ async function generateWithClaude(appIdea, trialDays, apiKey) {
   }
 
   const data = await response.json();
-  return data.content[0].text;
+  let code = data.content[0].text;
+  
+  // Remove markdown code blocks
+  code = code.replace(/```dart\n?/g, '');
+  code = code.replace(/```\n?/g, '');
+  code = code.trim();
+  
+  return code;
 }
 
-// Gerar com Gemini
 async function generateWithGemini(appIdea, trialDays) {
   const apiKey = process.env.GEMINI_API_KEY;
   
@@ -149,10 +151,16 @@ async function generateWithGemini(appIdea, trialDays) {
   }
 
   const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
+  let code = data.candidates[0].content.parts[0].text;
+  
+  // Remove markdown code blocks
+  code = code.replace(/```dart\n?/g, '');
+  code = code.replace(/```\n?/g, '');
+  code = code.trim();
+  
+  return code;
 }
 
-// Prompt unificado
 function getPrompt(appIdea, trialDays) {
   return `Gere um app Flutter COMPLETO e FUNCIONAL para: ${appIdea}
 
@@ -169,10 +177,9 @@ Integre o sistema de licenciamento com:
 - Validação de chave de licença (formato: XXXX-XXXX-XXXX-XXXX)
 
 Use Material Design 3, código limpo e funcional.
-Responda APENAS com o código completo do main.dart.`;
+Responda APENAS com o código completo do main.dart, SEM markdown code blocks (sem backticks).`;
 }
 
-// Criar repositório
 async function createGitHubRepo(appIdea) {
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
   
@@ -191,22 +198,16 @@ async function createGitHubRepo(appIdea) {
   return data;
 }
 
-// Criar estrutura COMPLETA do Flutter
 async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
   const [owner, repo] = [repoData.owner.login, repoData.name];
 
   const files = [
-    // Root files
     { path: 'pubspec.yaml', content: getPubspecContent(appIdea) },
     { path: 'analysis_options.yaml', content: getAnalysisOptions() },
     { path: '.gitignore', content: getGitignore() },
     { path: 'README.md', content: getReadme(appIdea) },
-    
-    // Lib
     { path: 'lib/main.dart', content: mainDartCode },
-    
-    // Android structure
     { path: 'android/app/build.gradle', content: getAppBuildGradle() },
     { path: 'android/build.gradle', content: getRootBuildGradle() },
     { path: 'android/gradle.properties', content: getGradleProperties() },
@@ -214,8 +215,6 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     { path: 'android/app/src/main/AndroidManifest.xml', content: getAndroidManifest(appIdea) },
     { path: 'android/app/src/main/kotlin/com/example/app/MainActivity.kt', content: getMainActivity() },
     { path: 'android/gradle/wrapper/gradle-wrapper.properties', content: getGradleWrapperProperties() },
-    
-    // GitHub Actions (COM V4!)
     { path: '.github/workflows/build.yml', content: getWorkflowContent() },
   ];
 
@@ -234,8 +233,6 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     }
   }
 }
-
-// ===== TEMPLATES DOS ARQUIVOS =====
 
 function getPubspecContent(appName) {
   const cleanName = appName.substring(0, 30).toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -491,3 +488,12 @@ app.listen(PORT, () => {
   console.log(`✅ Gemini API: ${process.env.GEMINI_API_KEY ? 'Configurada' : 'Não configurada'}`);
   console.log(`✅ GitHub Token: ${process.env.GITHUB_TOKEN ? 'Configurado' : 'Não configurado'}`);
 });
+```
+
+7. **Commit changes**
+
+8. **Aguarda Render redeploy (~2-3 min)**
+
+9. **Gera um app SIMPLES pra testar:**
+```
+App de lista de tarefas simples
