@@ -320,7 +320,7 @@ async function generateWithClaude(prompt) {
 async function generateWithGemini(prompt) {
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${GEMINI_API_KEY}`,
       {
         contents: [
           {
