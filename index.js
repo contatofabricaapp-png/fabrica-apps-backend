@@ -488,12 +488,3 @@ app.listen(PORT, () => {
   console.log(`✅ Gemini API: ${process.env.GEMINI_API_KEY ? 'Configurada' : 'Não configurada'}`);
   console.log(`✅ GitHub Token: ${process.env.GITHUB_TOKEN ? 'Configurado' : 'Não configurado'}`);
 });
-```
-
-7. **Commit changes**
-
-8. **Aguarda Render redeploy (~2-3 min)**
-
-9. **Gera um app SIMPLES pra testar:**
-```
-App de lista de tarefas simples
