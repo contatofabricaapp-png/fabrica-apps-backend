@@ -238,6 +238,7 @@ O código DEVE:
 * Usar StatefulWidget/StatelessWidget apropriadamente
 * Implementar todas as funcionalidades descritas (nada de placeholders ou TODOs)
 * Usar apenas Flutter SDK padrão + dependências declaradas
+* "Se o código exceder o limite, priorize a estrutura de navegação e as telas principais. Use //TODO: Implementar detalhes para funcionalidades secundárias se necessário, mas mantenha o app compilável."
 
 SISTEMA DE TRIAL / LICENÇA (OBRIGATÓRIO):
 
@@ -317,31 +318,54 @@ async function generateWithClaude(prompt) {
 }
 
 // Função para gerar código com Gemini
-async function generateWithGemini(prompt) {
+async function generateWithGemini(prompt) {async function generateWithGemini(prompt) {
   try {
+    // Usando gemini-1.5-flash para maior velocidade e limites de cota maiores
+    const model = 'gemini-1.5-flash'; 
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      url,
       {
         contents: [
           {
             parts: [
-              {
-                text: prompt
-              }
+              { text: prompt }
             ]
           }
-        ]
+        ],
+        // CONFIGURAÇÃO IMPORTANTE PARA CÓDIGOS LONGOS
+        generationConfig: {
+          temperature: 0.2, // Temperatura baixa para código mais preciso/estável
+          maxOutputTokens: 8192, // Permite respostas mais longas (essencial para main.dart completo)
+          topP: 0.95,
+        }
+      },
+      {
+        // Aumenta o tempo limite do Axios para evitar que o servidor caia enquanto o Gemini "pensa"
+        timeout: 120000 // 120 segundos (2 minutos)
       }
     );
 
+    // Verificação de segurança caso o Gemini bloqueie por conteúdo
+    if (!response.data.candidates || response.data.candidates.length === 0) {
+       throw new Error("O Gemini não retornou nenhum candidato. Verifique os filtros de segurança.");
+    }
+
     let code = response.data.candidates[0].content.parts[0].text;
-    code = code.replace(/```dart\n?/g, '');
-    code = code.replace(/```\n?/g, '');
-    code = code.trim();
-    return code;
+    
+    // Limpeza das tags markdown que o Gemini costuma colocar
+    code = code.replace(/^```dart\s*/gm, ''); // Remove ```dart do início
+    code = code.replace(/^```\s*/gm, '');     // Remove ``` genérico
+    code = code.replace(/```$/gm, '');        // Remove ``` do fim
+    
+    return code.trim();
+
   } catch (error) {
-    console.error('Erro ao chamar Gemini:', error.response?.data || error.message);
-    throw error;
+    // Melhor log de erro para debug
+    const errorMsg = error.response?.data?.error?.message || error.message;
+    console.error('ERRO DETALHADO GEMINI:', JSON.stringify(error.response?.data, null, 2));
+    throw new Error(`Falha na IA: ${errorMsg}`);
   }
 }
 
