@@ -12,20 +12,20 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.json({ 
     status: 'online',
-    message: 'Fábrica de Apps Backend funcionando!',
-    features: ['Claude API', 'Gemini Fallback', 'GitHub Actions', 'Estrutura Flutter Completa', 'Markdown Cleanup']
+    message: 'Fábrica de Apps Backend v2.1 - Prompt Otimizado!',
+    features: ['Claude API', 'Gemini Fallback', 'GitHub Actions', 'Estrutura Flutter Completa', 'Sistema de Licenças Integrado']
   });
 });
 
 app.post('/api/generate-app', async (req, res) => {
   try {
-    const { appIdea, trialDays, claudeApiKey } = req.body;
+    const { appIdea, trialDays = 7, claudeApiKey } = req.body;
 
     if (!appIdea) {
       return res.status(400).json({ error: 'appIdea é obrigatório' });
     }
 
-    console.log('Gerando código Flutter...');
+    console.log('📱 Gerando código Flutter para:', appIdea.substring(0, 50));
     const flutterCode = await generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey);
 
     if (!flutterCode) {
@@ -34,21 +34,26 @@ app.post('/api/generate-app', async (req, res) => {
       });
     }
 
-    console.log('Criando repositório no GitHub...');
+    console.log('📦 Criando repositório no GitHub...');
     const repoData = await createGitHubRepo(appIdea);
 
-    console.log('Criando estrutura completa do Flutter...');
+    console.log('🔧 Criando estrutura completa do Flutter...');
     await createCompleteFlutterStructure(repoData, flutterCode, appIdea);
+
+    // Gerar chaves de licença
+    const licenseKeys = generateLicenseKeys(10);
 
     res.json({
       success: true,
       message: 'App criado! GitHub Actions vai compilar o APK em 10-15 minutos.',
       repoUrl: repoData.html_url,
-      actionsUrl: `${repoData.html_url}/actions`
+      actionsUrl: `${repoData.html_url}/actions`,
+      licenseKeys: licenseKeys,
+      trialDays: trialDays
     });
 
   } catch (error) {
-    console.error('Erro:', error);
+    console.error('❌ Erro:', error);
     res.status(500).json({ 
       error: 'Erro ao gerar app',
       details: error.message 
@@ -56,9 +61,25 @@ app.post('/api/generate-app', async (req, res) => {
   }
 });
 
+// ============================================
+// GERADOR DE CHAVES DE LICENÇA
+// ============================================
+function generateLicenseKey() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const segment = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${segment()}-${segment()}-${segment()}-${segment()}`;
+}
+
+function generateLicenseKeys(count) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i + 1,
+    key: generateLicenseKey()
+  }));
+}
+
 async function generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey) {
   try {
-    console.log('Tentando gerar com Claude...');
+    console.log('🤖 Tentando gerar com Claude...');
     const code = await generateWithClaude(appIdea, trialDays, claudeApiKey);
     if (code) {
       console.log('✅ Código gerado com Claude!');
@@ -69,7 +90,7 @@ async function generateFlutterCodeWithFallback(appIdea, trialDays, claudeApiKey)
   }
 
   try {
-    console.log('Tentando gerar com Gemini (fallback)...');
+    console.log('🔄 Tentando gerar com Gemini (fallback)...');
     const code = await generateWithGemini(appIdea, trialDays);
     if (code) {
       console.log('✅ Código gerado com Gemini!');
@@ -98,7 +119,7 @@ async function generateWithClaude(appIdea, trialDays, apiKey) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
+      max_tokens: 8192, // AUMENTADO para evitar código cortado
       messages: [{
         role: 'user',
         content: getPrompt(appIdea, trialDays)
@@ -161,49 +182,273 @@ async function generateWithGemini(appIdea, trialDays) {
   return code;
 }
 
+// ============================================
+// PROMPT OTIMIZADO - PRINCIPAL CORREÇÃO
+// ============================================
 function getPrompt(appIdea, trialDays) {
-  return `Você é um desenvolvedor Flutter SÊNIOR com 10+ anos de experiência.
+  return `Gere um arquivo main.dart COMPLETO e COMPILÁVEL para Flutter.
 
-Gere um app Flutter COMPLETO, FUNCIONAL e PROFISSIONAL para: ${appIdea}
+## APP SOLICITADO:
+${appIdea}
 
-REQUISITOS TÉCNICOS:
-- Use Material Design 3
-- Código limpo, comentado e bem estruturado
-- Siga as melhores práticas do Flutter
-- Use StatefulWidget/StatelessWidget apropriadamente
-- Nomenclatura clara e intuitiva
-- Tratamento de erros adequado
-- Performance otimizada
+## ESTRUTURA OBRIGATÓRIA:
 
-IMPORTANTE - Sistema de Trial de ${trialDays} dias:
+O código DEVE seguir EXATAMENTE esta estrutura:
 
-Adicione estas dependências no pubspec.yaml:
-- shared_preferences: ^2.2.2
-- crypto: ^3.0.3
+### 1. IMPORTS (apenas estes):
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-Integre o sistema de licenciamento com:
-- Trial de ${trialDays} dias
-- Banner mostrando dias restantes durante o trial
-- Tela de bloqueio profissional quando expirar
-- Validação de chave de licença (formato: XXXX-XXXX-XXXX-XXXX)
-- Mensagens claras e amigáveis ao usuário
+### 2. SISTEMA DE LICENÇAS (copie EXATAMENTE):
 
-INTERFACE:
-- Design moderno e atrativo
-- Cores profissionais e harmoniosas  
-- Navegação intuitiva
-- Feedback visual em todas as ações
-- Animações suaves (onde apropriado)
+enum LicenseStatus { trial, licensed, expired }
 
-FUNCIONALIDADES:
-- Todas as funcionalidades devem ser REAIS e FUNCIONAIS
-- Não use placeholders ou "TODO"
-- Dados devem ser salvos e persistidos
-- Validação de formulários
-- Mensagens de erro/sucesso claras
+class LicenseManager {
+  static const String _firstRunKey = 'app_first_run';
+  static const String _licenseKey = 'app_license';
+  static const int trialDays = ${trialDays};
 
-Responda APENAS com o código completo do main.dart, SEM markdown backticks.
-Não inclua \`\`\`dart no início nem \`\`\` no final.`;
+  static Future<LicenseStatus> checkLicense() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_licenseKey) != null) return LicenseStatus.licensed;
+    final firstRun = prefs.getString(_firstRunKey);
+    if (firstRun == null) {
+      await prefs.setString(_firstRunKey, DateTime.now().toIso8601String());
+      return LicenseStatus.trial;
+    }
+    final startDate = DateTime.parse(firstRun);
+    final daysUsed = DateTime.now().difference(startDate).inDays;
+    return daysUsed < trialDays ? LicenseStatus.trial : LicenseStatus.expired;
+  }
+
+  static Future<int> getRemainingDays() async {
+    final prefs = await SharedPreferences.getInstance();
+    final firstRun = prefs.getString(_firstRunKey);
+    if (firstRun == null) return trialDays;
+    final startDate = DateTime.parse(firstRun);
+    final daysUsed = DateTime.now().difference(startDate).inDays;
+    return (trialDays - daysUsed).clamp(0, trialDays);
+  }
+
+  static Future<bool> activate(String key) async {
+    final cleaned = key.trim().toUpperCase();
+    if (RegExp(r'^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\$').hasMatch(cleaned)) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_licenseKey, cleaned);
+      return true;
+    }
+    return false;
+  }
+}
+
+### 3. FUNÇÃO MAIN (use exatamente):
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final status = await LicenseManager.checkLicense();
+  final remainingDays = await LicenseManager.getRemainingDays();
+  runApp(MyApp(licenseStatus: status, remainingDays: remainingDays));
+}
+
+### 4. CLASSE MyApp (use exatamente):
+
+class MyApp extends StatelessWidget {
+  final LicenseStatus licenseStatus;
+  final int remainingDays;
+  
+  const MyApp({super.key, required this.licenseStatus, required this.remainingDays});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'App',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+      ),
+      home: licenseStatus == LicenseStatus.expired 
+        ? const LicenseExpiredScreen()
+        : HomeScreen(licenseStatus: licenseStatus, remainingDays: remainingDays),
+    );
+  }
+}
+
+### 5. TELA DE LICENÇA EXPIRADA (copie exatamente):
+
+class LicenseExpiredScreen extends StatefulWidget {
+  const LicenseExpiredScreen({super.key});
+  @override
+  State<LicenseExpiredScreen> createState() => _LicenseExpiredScreenState();
+}
+
+class _LicenseExpiredScreenState extends State<LicenseExpiredScreen> {
+  final _controller = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _activate() async {
+    setState(() { _loading = true; _error = null; });
+    await Future.delayed(const Duration(milliseconds: 500));
+    final success = await LicenseManager.activate(_controller.text);
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MyAppRestart()));
+    } else if (mounted) {
+      setState(() { _error = 'Chave inválida'; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.red.shade800, Colors.red.shade600],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock, size: 80, color: Colors.white),
+                const SizedBox(height: 24),
+                const Text('Período de Teste Encerrado', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                const SizedBox(height: 16),
+                Text('Seu período de ${LicenseManager.trialDays} dias terminou.', style: const TextStyle(color: Colors.white70)),
+                const SizedBox(height: 32),
+                TextField(
+                  controller: _controller,
+                  decoration: InputDecoration(
+                    labelText: 'Chave de Licença',
+                    hintText: 'XXXX-XXXX-XXXX-XXXX',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    errorText: _error,
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 19,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _activate,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.all(16),
+                      backgroundColor: Colors.green,
+                    ),
+                    child: _loading 
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Ativar', style: TextStyle(fontSize: 18, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MyAppRestart extends StatelessWidget {
+  const MyAppRestart({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: Future.wait([LicenseManager.checkLicense(), LicenseManager.getRemainingDays()]),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return MyApp(licenseStatus: snapshot.data![0] as LicenseStatus, remainingDays: snapshot.data![1] as int);
+      },
+    );
+  }
+}
+
+### 6. BANNER DE TRIAL (copie exatamente):
+
+class TrialBanner extends StatelessWidget {
+  final int daysRemaining;
+  const TrialBanner({super.key, required this.daysRemaining});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      color: daysRemaining <= 2 ? Colors.red : Colors.orange,
+      child: Text(
+        'Período de teste: $daysRemaining ${daysRemaining == 1 ? "dia restante" : "dias restantes"}',
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+### 7. HOMESCREEN - A TELA PRINCIPAL:
+
+A HomeScreen DEVE:
+- Receber licenseStatus e remainingDays como parâmetros
+- Mostrar TrialBanner no topo SE licenseStatus == LicenseStatus.trial
+- Implementar TODAS as funcionalidades do app solicitado
+
+Estrutura da HomeScreen:
+
+class HomeScreen extends StatefulWidget {
+  final LicenseStatus licenseStatus;
+  final int remainingDays;
+  
+  const HomeScreen({super.key, required this.licenseStatus, required this.remainingDays});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // Seu estado aqui
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Nome do App'),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          if (widget.licenseStatus == LicenseStatus.trial)
+            TrialBanner(daysRemaining: widget.remainingDays),
+          Expanded(
+            child: // CONTEÚDO DO APP AQUI
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+## REGRAS IMPORTANTES:
+
+1. O código deve COMPILAR sem erros
+2. Feche TODAS as chaves {} e parênteses ()
+3. NÃO use "..." ou comentários para abreviar código
+4. Use Material Design 3 (useMaterial3: true)
+5. Máximo de 400 linhas para garantir que compila
+6. Implemente funcionalidades SIMPLES mas FUNCIONAIS
+7. Use dados mockados em listas locais
+
+## RESPOSTA:
+
+Responda APENAS com o código Dart completo.
+Não inclua \`\`\`dart nem \`\`\` nem explicações.
+Comece direto com: import 'package:flutter/material.dart';`;
 }
 
 async function createGitHubRepo(appIdea) {
@@ -273,7 +518,6 @@ dependencies:
   flutter:
     sdk: flutter
   shared_preferences: ^2.2.2
-  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:
@@ -291,6 +535,8 @@ function getAnalysisOptions() {
 linter:
   rules:
     prefer_const_constructors: false
+    prefer_const_literals_to_create_immutables: false
+    use_key_in_widget_constructors: false
 `;
 }
 
@@ -308,13 +554,20 @@ build/
 *.ipr
 *.iws
 .idea/
+local.properties
 `;
 }
 
 function getReadme(appIdea) {
   return `# ${appIdea.substring(0, 50)}
 
-App gerado automaticamente pela Fábrica de Apps.
+App gerado automaticamente pela Fábrica de Apps PRO.
+
+## Funcionalidades
+
+- Sistema de trial integrado
+- Licenciamento por chave
+- Design Material 3
 
 ## Como usar
 
@@ -327,6 +580,8 @@ App gerado automaticamente pela Fábrica de Apps.
 \`\`\`bash
 flutter build apk --release
 \`\`\`
+
+O APK estará em: \`build/app/outputs/flutter-apk/app-release.apk\`
 `;
 }
 
@@ -341,6 +596,15 @@ android {
     namespace "com.example.app"
     compileSdk 34
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
     defaultConfig {
         applicationId "com.example.app"
         minSdk 21
@@ -352,6 +616,8 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
@@ -364,14 +630,15 @@ flutter {
 
 function getRootBuildGradle() {
   return `buildscript {
+    ext.kotlin_version = '1.9.0'
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath "com.android.tools.build:gradle:8.1.0"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0"
+        classpath 'com.android.tools.build:gradle:8.1.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:\$kotlin_version"
     }
 }
 
@@ -381,11 +648,23 @@ allprojects {
         mavenCentral()
     }
 }
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "\${rootProject.buildDir}/\${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
 `;
 }
 
 function getGradleProperties() {
-  return `org.gradle.jvmargs=-Xmx4G
+  return `org.gradle.jvmargs=-Xmx4G -XX:+HeapDumpOnOutOfMemoryError
 android.useAndroidX=true
 android.enableJetifier=true
 `;
@@ -411,7 +690,9 @@ function getSettingsGradle() {
 }
 
 plugins {
-    id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
+    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+    id "com.android.application" version "8.1.0" apply false
+    id "org.jetbrains.kotlin.android" version "1.9.0" apply false
 }
 
 include ":app"
@@ -419,9 +700,10 @@ include ":app"
 }
 
 function getAndroidManifest(appName) {
+  const cleanName = appName.substring(0, 30).replace(/[<>&"']/g, '');
   return `<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="${appName.substring(0, 30)}"
+        android:label="${cleanName}"
         android:name="\${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -474,16 +756,17 @@ function getWorkflowContent() {
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup Java
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
@@ -497,20 +780,30 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
     
+    - name: Analyze code
+      run: flutter analyze --no-fatal-infos --no-fatal-warnings || true
+    
     - name: Build APK
-      run: flutter build apk --release
+      run: flutter build apk --release --no-tree-shake-icons
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-release
         path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
 `;
 }
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend rodando na porta ${PORT}`);
-  console.log(`✅ Claude API: ${process.env.CLAUDE_API_KEY ? 'Configurada' : 'Não configurada'}`);
-  console.log(`✅ Gemini API: ${process.env.GEMINI_API_KEY ? 'Configurada' : 'Não configurada'}`);
-  console.log(`✅ GitHub Token: ${process.env.GITHUB_TOKEN ? 'Configurado' : 'Não configurado'}`);
+  console.log(`
+╔═══════════════════════════════════════════════════════╗
+║  🚀 Fábrica de Apps Backend v2.1                      ║
+║  📍 Porta: ${PORT}                                       ║
+╠═══════════════════════════════════════════════════════╣
+║  ✅ Claude API: ${process.env.CLAUDE_API_KEY ? 'Configurada' : '❌ Não configurada'}                        
+║  ✅ Gemini API: ${process.env.GEMINI_API_KEY ? 'Configurada' : '❌ Não configurada'}                        
+║  ✅ GitHub Token: ${process.env.GITHUB_TOKEN ? 'Configurado' : '❌ Não configurado'}                       
+╚═══════════════════════════════════════════════════════╝
+  `);
 });
