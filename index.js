@@ -186,27 +186,13 @@ async function generateWithGemini(appIdea, trialDays) {
 // PROMPT OTIMIZADO - PRINCIPAL CORREÇÃO
 // ============================================
 function getPrompt(appIdea, trialDays) {
-  return `Gere um arquivo main.dart COMPLETO e COMPILÁVEL para Flutter.
-
-## APP SOLICITADO:
-${appIdea}
-
-## ESTRUTURA OBRIGATÓRIA:
-
-O código DEVE seguir EXATAMENTE esta estrutura:
-
-### 1. IMPORTS (apenas estes):
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-### 2. SISTEMA DE LICENÇAS (copie EXATAMENTE):
-
+  const licenseCode = `
 enum LicenseStatus { trial, licensed, expired }
 
 class LicenseManager {
   static const String _firstRunKey = 'app_first_run';
   static const String _licenseKey = 'app_license';
-  static const int trialDays = ${trialDays};
+  static const int trialDays = ` + trialDays + `;
 
   static Future<LicenseStatus> checkLicense() async {
     final prefs = await SharedPreferences.getInstance();
@@ -232,146 +218,30 @@ class LicenseManager {
 
   static Future<bool> activate(String key) async {
     final cleaned = key.trim().toUpperCase();
-    if (RegExp(r'^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\$').hasMatch(cleaned)) {
+    final regex = RegExp(r'^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}');
+    if (regex.hasMatch(cleaned) && cleaned.length == 19) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_licenseKey, cleaned);
       return true;
     }
     return false;
   }
-}
+}`;
 
-### 3. FUNÇÃO MAIN (use exatamente):
+  const prompt = `Gere um arquivo main.dart COMPLETO e COMPILÁVEL para Flutter.
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final status = await LicenseManager.checkLicense();
-  final remainingDays = await LicenseManager.getRemainingDays();
-  runApp(MyApp(licenseStatus: status, remainingDays: remainingDays));
-}
+APP SOLICITADO: ` + appIdea + `
 
-### 4. CLASSE MyApp (use exatamente):
+ESTRUTURA OBRIGATÓRIA - Siga EXATAMENTE:
 
-class MyApp extends StatelessWidget {
-  final LicenseStatus licenseStatus;
-  final int remainingDays;
-  
-  const MyApp({super.key, required this.licenseStatus, required this.remainingDays});
+1. IMPORTS (apenas estes dois):
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: licenseStatus == LicenseStatus.expired 
-        ? const LicenseExpiredScreen()
-        : HomeScreen(licenseStatus: licenseStatus, remainingDays: remainingDays),
-    );
-  }
-}
+2. SISTEMA DE LICENÇAS (copie exatamente após os imports):
+` + licenseCode + `
 
-### 5. TELA DE LICENÇA EXPIRADA (copie exatamente):
-
-class LicenseExpiredScreen extends StatefulWidget {
-  const LicenseExpiredScreen({super.key});
-  @override
-  State<LicenseExpiredScreen> createState() => _LicenseExpiredScreenState();
-}
-
-class _LicenseExpiredScreenState extends State<LicenseExpiredScreen> {
-  final _controller = TextEditingController();
-  bool _loading = false;
-  String? _error;
-
-  Future<void> _activate() async {
-    setState(() { _loading = true; _error = null; });
-    await Future.delayed(const Duration(milliseconds: 500));
-    final success = await LicenseManager.activate(_controller.text);
-    if (success && mounted) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MyAppRestart()));
-    } else if (mounted) {
-      setState(() { _error = 'Chave inválida'; _loading = false; });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.red.shade800, Colors.red.shade600],
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.lock, size: 80, color: Colors.white),
-                const SizedBox(height: 24),
-                const Text('Período de Teste Encerrado', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-                const SizedBox(height: 16),
-                Text('Seu período de ${LicenseManager.trialDays} dias terminou.', style: const TextStyle(color: Colors.white70)),
-                const SizedBox(height: 32),
-                TextField(
-                  controller: _controller,
-                  decoration: InputDecoration(
-                    labelText: 'Chave de Licença',
-                    hintText: 'XXXX-XXXX-XXXX-XXXX',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    errorText: _error,
-                  ),
-                  textCapitalization: TextCapitalization.characters,
-                  maxLength: 19,
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _activate,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      backgroundColor: Colors.green,
-                    ),
-                    child: _loading 
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Ativar', style: TextStyle(fontSize: 18, color: Colors.white)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class MyAppRestart extends StatelessWidget {
-  const MyAppRestart({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: Future.wait([LicenseManager.checkLicense(), LicenseManager.getRemainingDays()]),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-        return MyApp(licenseStatus: snapshot.data![0] as LicenseStatus, remainingDays: snapshot.data![1] as int);
-      },
-    );
-  }
-}
-
-### 6. BANNER DE TRIAL (copie exatamente):
+3. WIDGETS DO SISTEMA (copie exatamente):
 
 class TrialBanner extends StatelessWidget {
   final int daysRemaining;
@@ -384,7 +254,7 @@ class TrialBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       color: daysRemaining <= 2 ? Colors.red : Colors.orange,
       child: Text(
-        'Período de teste: $daysRemaining ${daysRemaining == 1 ? "dia restante" : "dias restantes"}',
+        'Teste: ' + daysRemaining.toString() + ' dias restantes',
         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         textAlign: TextAlign.center,
       ),
@@ -392,63 +262,138 @@ class TrialBanner extends StatelessWidget {
   }
 }
 
-### 7. HOMESCREEN - A TELA PRINCIPAL:
-
-A HomeScreen DEVE:
-- Receber licenseStatus e remainingDays como parâmetros
-- Mostrar TrialBanner no topo SE licenseStatus == LicenseStatus.trial
-- Implementar TODAS as funcionalidades do app solicitado
-
-Estrutura da HomeScreen:
-
-class HomeScreen extends StatefulWidget {
-  final LicenseStatus licenseStatus;
-  final int remainingDays;
-  
-  const HomeScreen({super.key, required this.licenseStatus, required this.remainingDays});
-
+class LicenseExpiredScreen extends StatefulWidget {
+  const LicenseExpiredScreen({super.key});
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<LicenseExpiredScreen> createState() => _LicenseExpiredScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  // Seu estado aqui
-  
+class _LicenseExpiredScreenState extends State<LicenseExpiredScreen> {
+  final _ctrl = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _activate() async {
+    setState(() { _loading = true; _error = null; });
+    await Future.delayed(const Duration(milliseconds: 500));
+    final ok = await LicenseManager.activate(_ctrl.text);
+    if (ok && mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RestartApp()));
+    } else if (mounted) {
+      setState(() { _error = 'Chave inválida'; _loading = false; });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nome do App'),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          if (widget.licenseStatus == LicenseStatus.trial)
-            TrialBanner(daysRemaining: widget.remainingDays),
-          Expanded(
-            child: // CONTEÚDO DO APP AQUI
+      body: Container(
+        decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.red.shade800, Colors.red.shade600], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock, size: 80, color: Colors.white),
+                const SizedBox(height: 24),
+                const Text('Período de Teste Encerrado', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                const SizedBox(height: 32),
+                TextField(controller: _ctrl, decoration: InputDecoration(labelText: 'Chave de Licença', hintText: 'XXXX-XXXX-XXXX-XXXX', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), errorText: _error), textCapitalization: TextCapitalization.characters, maxLength: 19),
+                const SizedBox(height: 16),
+                SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _loading ? null : _activate, style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16), backgroundColor: Colors.green), child: _loading ? const CircularProgressIndicator(color: Colors.white) : const Text('Ativar', style: TextStyle(fontSize: 18, color: Colors.white)))),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-## REGRAS IMPORTANTES:
+class RestartApp extends StatelessWidget {
+  const RestartApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([LicenseManager.checkLicense(), LicenseManager.getRemainingDays()]),
+      builder: (context, snap) {
+        if (!snap.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return MyApp(licenseStatus: snap.data![0] as LicenseStatus, remainingDays: snap.data![1] as int);
+      },
+    );
+  }
+}
 
-1. O código deve COMPILAR sem erros
-2. Feche TODAS as chaves {} e parênteses ()
-3. NÃO use "..." ou comentários para abreviar código
-4. Use Material Design 3 (useMaterial3: true)
-5. Máximo de 400 linhas para garantir que compila
-6. Implemente funcionalidades SIMPLES mas FUNCIONAIS
-7. Use dados mockados em listas locais
+4. MAIN (copie exatamente):
 
-## RESPOSTA:
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final status = await LicenseManager.checkLicense();
+  final days = await LicenseManager.getRemainingDays();
+  runApp(MyApp(licenseStatus: status, remainingDays: days));
+}
 
-Responda APENAS com o código Dart completo.
-Não inclua \`\`\`dart nem \`\`\` nem explicações.
-Comece direto com: import 'package:flutter/material.dart';`;
+5. MYAPP (copie exatamente):
+
+class MyApp extends StatelessWidget {
+  final LicenseStatus licenseStatus;
+  final int remainingDays;
+  const MyApp({super.key, required this.licenseStatus, required this.remainingDays});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'App',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue), useMaterial3: true),
+      home: licenseStatus == LicenseStatus.expired ? const LicenseExpiredScreen() : HomeScreen(licenseStatus: licenseStatus, remainingDays: remainingDays),
+    );
+  }
+}
+
+6. HOMESCREEN - Crie a tela principal assim:
+
+class HomeScreen extends StatefulWidget {
+  final LicenseStatus licenseStatus;
+  final int remainingDays;
+  const HomeScreen({super.key, required this.licenseStatus, required this.remainingDays});
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('App'), centerTitle: true),
+      body: Column(
+        children: [
+          if (widget.licenseStatus == LicenseStatus.trial) TrialBanner(daysRemaining: widget.remainingDays),
+          Expanded(child: _buildContent()),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildContent() {
+    // IMPLEMENTE O CONTEUDO DO APP AQUI
+  }
+}
+
+REGRAS:
+- Código DEVE compilar sem erros
+- Feche TODAS as chaves e parênteses
+- Máximo 350 linhas
+- Use dados mockados em listas
+- NÃO use ... para abreviar
+- Implemente funcionalidades simples mas funcionais
+
+Responda APENAS com código Dart puro.
+SEM crases, SEM markdown, SEM explicações.
+Comece com: import 'package:flutter/material.dart';`;
+
+  return prompt;
 }
 
 async function createGitHubRepo(appIdea) {
