@@ -24,18 +24,15 @@ class LicenseManager {
   static Future<LicenseStatus> checkLicense() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Verifica se já tem licença válida
     final storedLicense = prefs.getString(_licenseKey);
     if (storedLicense != null && _validateLicense(storedLicense)) {
       return LicenseStatus.licensed;
     }
 
-    // Verifica trial
     final firstRunStr = prefs.getString(_firstRunKey);
     final now = DateTime.now();
 
     if (firstRunStr == null) {
-      // Primeira execução - inicia trial
       await prefs.setString(_firstRunKey, now.toIso8601String());
       return LicenseStatus.trial;
     }
@@ -74,13 +71,10 @@ class LicenseManager {
   }
 
   static bool _validateLicense(String license) {
-    // Remove hífens e converte para maiúsculas
     final clean = license.replaceAll('-', '').toUpperCase();
     
-    // Verifica formato XXXX-XXXX-XXXX-XXXX (16 caracteres)
     if (clean.length != 16) return false;
 
-    // Validação simples: checksum dos primeiros 12 caracteres
     final data = clean.substring(0, 12);
     final checksum = clean.substring(12);
     
@@ -150,7 +144,6 @@ class _LicenseBlockScreenState extends State<LicenseBlockScreen> {
     setState(() => _isLoading = false);
 
     if (success) {
-      // Reinicia o app
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MyApp(licenseStatus: LicenseStatus.licensed)),
       );
@@ -313,7 +306,6 @@ async function generateWithClaude(prompt) {
     );
 
     let code = response.data.content[0].text;
-    // Limpa markdown backticks se existirem
     code = code.replace(/```dart\n?/g, '');
     code = code.replace(/```\n?/g, '');
     code = code.trim();
@@ -343,7 +335,6 @@ async function generateWithGemini(prompt) {
     );
 
     let code = response.data.candidates[0].content.parts[0].text;
-    // Limpa markdown backticks se existirem
     code = code.replace(/```dart\n?/g, '');
     code = code.replace(/```\n?/g, '');
     code = code.trim();
@@ -523,8 +514,8 @@ class MainActivity: FlutterActivity() {
 `;
 }
 
-// Endpoint principal
-app.post('/generate', async (req, res) => {
+// Função handler compartilhada para ambas as rotas
+async function handleGenerate(req, res) {
   try {
     const { appIdea, apiKey, trialDays = 7 } = req.body;
 
@@ -532,7 +523,6 @@ app.post('/generate', async (req, res) => {
       return res.status(400).json({ error: 'Descrição do app é obrigatória' });
     }
 
-    // Decide qual API usar
     const useClaudeAPI = apiKey || ANTHROPIC_API_KEY;
     const prompt = getPrompt(appIdea, trialDays);
 
@@ -547,7 +537,6 @@ app.post('/generate', async (req, res) => {
 
     const appName = appIdea.split(' ').slice(0, 3).join(' ');
 
-    // Cria estrutura de arquivos
     const projectStructure = {
       'lib/main.dart': mainDartCode,
       'pubspec.yaml': getPubspecTemplate(appName),
@@ -571,7 +560,11 @@ app.post('/generate', async (req, res) => {
       details: error.message
     });
   }
-});
+}
+
+// AMBAS AS ROTAS (compatibilidade com frontend antigo e novo)
+app.post('/generate', handleGenerate);
+app.post('/api/generate-app', handleGenerate);
 
 // Health check
 app.get('/', (req, res) => {
