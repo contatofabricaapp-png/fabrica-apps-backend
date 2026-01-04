@@ -320,7 +320,7 @@ async function generateWithClaude(prompt) {
 async function generateWithGemini(prompt) {
   try {
     // Usando gemini-1.5-flash para maior velocidade e limites de cota maiores
-    const model = 'gemini-1.5-flash'; 
+    const model = 'gemini-2.5-flash'; 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
     const response = await axios.post(
