@@ -9,7 +9,7 @@ app.use(express.json());
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Código do License Manager (será inserido no prompt)
+// Código do License Manager
 const LICENSE_MANAGER_CODE = `import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
@@ -107,7 +107,7 @@ class TrialBanner extends StatelessWidget {
               const Icon(Icons.access_time, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Trial: \$days \${days == 1 ? 'dia restante' : 'dias restantes'}',
+                'Trial: $days \${days == 1 ? 'dia restante' : 'dias restantes'}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -238,7 +238,7 @@ O código DEVE:
 * Usar StatefulWidget/StatelessWidget apropriadamente
 * Implementar todas as funcionalidades descritas (nada de placeholders ou TODOs)
 * Usar apenas Flutter SDK padrão + dependências declaradas
-* "Se o código exceder o limite, priorize a estrutura de navegação e as telas principais. Use //TODO: Implementar detalhes para funcionalidades secundárias se necessário, mas mantenha o app compilável."
+* Se o código for muito longo, priorize a estrutura de navegação e as telas principais funcionais, mas garanta que o arquivo termine corretamente e compile.
 
 SISTEMA DE TRIAL / LICENÇA (OBRIGATÓRIO):
 
@@ -305,7 +305,6 @@ async function generateWithClaude(prompt) {
         }
       }
     );
-
     let code = response.data.content[0].text;
     code = code.replace(/```dart\n?/g, '');
     code = code.replace(/```\n?/g, '');
@@ -317,8 +316,8 @@ async function generateWithClaude(prompt) {
   }
 }
 
-// Função para gerar código com Gemini
-async function generateWithGemini(prompt) {async function generateWithGemini(prompt) {
+// Função para gerar código com Gemini (CORRIGIDA)
+async function generateWithGemini(prompt) {
   try {
     // Usando gemini-1.5-flash para maior velocidade e limites de cota maiores
     const model = 'gemini-1.5-flash'; 
@@ -542,7 +541,6 @@ class MainActivity: FlutterActivity() {
 async function handleGenerate(req, res) {
   try {
     const { appIdea, apiKey, trialDays = 7 } = req.body;
-
     if (!appIdea) {
       return res.status(400).json({ error: 'Descrição do app é obrigatória' });
     }
@@ -560,7 +558,6 @@ async function handleGenerate(req, res) {
     }
 
     const appName = appIdea.split(' ').slice(0, 3).join(' ');
-
     const projectStructure = {
       'lib/main.dart': mainDartCode,
       'pubspec.yaml': getPubspecTemplate(appName),
@@ -576,7 +573,6 @@ async function handleGenerate(req, res) {
       files: projectStructure,
       message: 'App gerado com sucesso!'
     });
-
   } catch (error) {
     console.error('Erro:', error);
     res.status(500).json({
