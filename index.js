@@ -162,7 +162,18 @@ async function generateWithGemini(appIdea, trialDays) {
 }
 
 function getPrompt(appIdea, trialDays) {
-  return `Gere um app Flutter COMPLETO e FUNCIONAL para: ${appIdea}
+  return `Você é um desenvolvedor Flutter SÊNIOR com 10+ anos de experiência.
+
+Gere um app Flutter COMPLETO, FUNCIONAL e PROFISSIONAL para: ${appIdea}
+
+REQUISITOS TÉCNICOS:
+- Use Material Design 3
+- Código limpo, comentado e bem estruturado
+- Siga as melhores práticas do Flutter
+- Use StatefulWidget/StatelessWidget apropriadamente
+- Nomenclatura clara e intuitiva
+- Tratamento de erros adequado
+- Performance otimizada
 
 IMPORTANTE - Sistema de Trial de ${trialDays} dias:
 
@@ -172,12 +183,27 @@ Adicione estas dependências no pubspec.yaml:
 
 Integre o sistema de licenciamento com:
 - Trial de ${trialDays} dias
-- Banner mostrando dias restantes
-- Tela de bloqueio quando expirar
+- Banner mostrando dias restantes durante o trial
+- Tela de bloqueio profissional quando expirar
 - Validação de chave de licença (formato: XXXX-XXXX-XXXX-XXXX)
+- Mensagens claras e amigáveis ao usuário
 
-Use Material Design 3, código limpo e funcional.
-Responda APENAS com o código completo do main.dart, SEM markdown code blocks (sem backticks).`;
+INTERFACE:
+- Design moderno e atrativo
+- Cores profissionais e harmoniosas  
+- Navegação intuitiva
+- Feedback visual em todas as ações
+- Animações suaves (onde apropriado)
+
+FUNCIONALIDADES:
+- Todas as funcionalidades devem ser REAIS e FUNCIONAIS
+- Não use placeholders ou "TODO"
+- Dados devem ser salvos e persistidos
+- Validação de formulários
+- Mensagens de erro/sucesso claras
+
+Responda APENAS com o código completo do main.dart, SEM markdown backticks.
+Não inclua \`\`\`dart no início nem \`\`\` no final.`;
 }
 
 async function createGitHubRepo(appIdea) {
