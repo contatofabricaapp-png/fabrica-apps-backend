@@ -446,7 +446,7 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     { path: 'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml', content: getIconXml() },
 
     // 5. Por último, o AndroidManifest que depende de todos os recursos acima
-    { path: 'android/app/src/main/AndroidManifest.xml', content: getAndroidManifest(appIdea) },
+    { path: 'android/app/src/main/AndroidManifest.xml', content: fest(appIdea) },
   ];
 
   for (const file of files) {
@@ -665,11 +665,15 @@ include ":app"
 
 function getAndroidManifest(appName) {
   const cleanName = appName.substring(0, 30).replace(/[<>&"']/g, '');
+  
+  // ========================================================================
+  // CORREÇÃO DEFINITIVA BASEADA NA DOCUMENTAÇÃO E PROJETOS FUNCIONAIS
+  // ========================================================================
   return `<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:label="${cleanName}"
-        android:name="\${applicationName}"
-        android:icon="@mipmap/ic_launcher"> 
+        android:name="io.flutter.app.FlutterMultiDexApplication" 
+        android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -678,15 +682,19 @@ function getAndroidManifest(appName) {
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+            
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        
+        <!-- A posição correta para a V2 Embedding -->
+        <meta-data
+            android:name="io.flutter.embedding.android.NormalTheme"
+            android:resource="@style/NormalTheme"
+            />
+            
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
