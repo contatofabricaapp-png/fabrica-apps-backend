@@ -418,8 +418,6 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
   const [owner, repo] = [repoData.owner.login, repoData.name];
 
-  // CORREÇÃO: Adicionados arquivos .gitkeep para forçar a criação das pastas de recursos.
-  // A ordem é importante: primeiro criamos as pastas, depois os arquivos dentro delas.
   const files = [
     // 1. Arquivos de configuração e estrutura básica
     { path: 'pubspec.yaml', content: getPubspecContent(appIdea) },
@@ -433,7 +431,7 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     { path: 'android/build.gradle', content: getRootBuildGradle() },
     { path: 'android/gradle.properties', content: getGradleProperties() },
     { path: 'android/settings.gradle', content: getSettingsGradle() },
-    { path: 'android/app/src/main/kotlin/com/example/app/MainActivity.kt', content: getMainActivity() },
+    // { path: 'android/app/src/main/kotlin/com/example/app/MainActivity.kt', content: getMainActivity() }, // <-- LINHA REMOVIDA
     { path: 'android/gradle/wrapper/gradle-wrapper.properties', content: getGradleWrapperProperties() },
     { path: '.github/workflows/build.yml', content: getWorkflowContent() },
 
@@ -453,25 +451,21 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
 
   for (const file of files) {
     try {
-      // Adiciona um pequeno log para acompanhar o processo
       console.log(`📄 Criando arquivo: ${file.path}`);
       await octokit.rest.repos.createOrUpdateFileContents({
         owner,
         repo,
         path: file.path,
         message: `Add ${file.path}`,
-        // Para o .gitkeep, o conteúdo é vazio, então usamos Buffer.from('')
         content: Buffer.from(file.content || '').toString('base64')
       });
-      // Mantém um pequeno delay para evitar sobrecarregar a API do GitHub
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
       console.error(`❌ Erro ao criar ${file.path}:`, error.message);
-      // Se um arquivo falhar, é útil saber qual foi
-      // Você pode decidir se quer parar o processo ou continuar
     }
   }
 }
+
 
 
 function getPubspecContent(appName) {
