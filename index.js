@@ -434,7 +434,8 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     { path: '.github/workflows/build.yml', content: getWorkflowContent() },
     { path: 'android/app/src/main/res/values/styles.xml', content: getStylesXml() },
     { path: 'android/app/src/main/res/drawable/launch_background.xml', content: getLaunchBackground() },
-    { path: 'android/app/src/main/res/drawable/ic_launcher.xml', content: getIconXml() },
+    // CORREÇÃO APLICADA AQUI: O ícone agora é criado na pasta mipmap correta.
+    { path: 'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml', content: getIconXml() },
   ];
 
   for (const file of files) {
@@ -653,7 +654,7 @@ function getAndroidManifest(appName) {
     <application
         android:label="${cleanName}"
         android:name="\${applicationName}"
-        android:icon="@drawable/ic_launcher"> 
+        android:icon="@mipmap/ic_launcher"> 
         <activity
             android:name=".MainActivity"
             android:exported="true"
