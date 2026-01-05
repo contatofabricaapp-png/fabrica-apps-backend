@@ -432,6 +432,9 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     { path: 'android/app/src/main/kotlin/com/example/app/MainActivity.kt', content: getMainActivity() },
     { path: 'android/gradle/wrapper/gradle-wrapper.properties', content: getGradleWrapperProperties() },
     { path: '.github/workflows/build.yml', content: getWorkflowContent() },
+    { path: 'android/app/src/main/res/values/styles.xml', content: getStylesXml() },
+    { path: 'android/app/src/main/res/drawable/launch_background.xml', content: getLaunchBackground() },
+    { path: 'android/app/src/main/res/drawable/ic_launcher.xml', content: getIconXml() },
   ];
 
   for (const file of files) {
@@ -650,7 +653,7 @@ function getAndroidManifest(appName) {
     <application
         android:label="${cleanName}"
         android:name="\${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@drawable/ic_launcher"> 
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -693,6 +696,38 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 distributionUrl=https\\://services.gradle.org/distributions/gradle-8.3-all.zip
 `;
+}
+
+function getStylesXml() {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>`;
+}
+
+function getLaunchBackground() {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/white" />
+</layer-list>`;
+}
+
+function getIconXml() {
+  // Cria um ícone simples (um quadrado azul com círculo branco) para não dar erro
+  return `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#2196F3" android:pathData="M0,0h108v108h-108z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M54,54m-20,0a20,20 0 1,1 40,0a20,20 0 1,1 -40,0"/>
+</vector>`;
 }
 
 function getWorkflowContent() {
