@@ -1,6 +1,3 @@
-S
-Copiar
-
 const express = require('express');
 const cors = require('cors');
 const { Octokit } = require('octokit');
