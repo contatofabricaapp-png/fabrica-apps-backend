@@ -468,6 +468,7 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
 
 
 
+
 function getPubspecContent(appName) {
   const cleanName = appName.substring(0, 30).toLowerCase().replace(/[^a-z0-9]/g, '_');
   return `name: ${cleanName}
