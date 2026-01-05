@@ -395,11 +395,6 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     { path: 'android/gradle/wrapper/gradle-wrapper.properties', content: getGradleWrapperProperties() },
     { path: 'android/app/src/main/res/values/styles.xml', content: getStylesXml() },
     { path: 'android/app/src/main/res/drawable/launch_background.xml', content: getLaunchBackground() },
-    { path: 'android/app/src/main/res/mipmap-hdpi/ic_launcher.png', content: getIconBase64() },
-    { path: 'android/app/src/main/res/mipmap-mdpi/ic_launcher.png', content: getIconBase64() },
-    { path: 'android/app/src/main/res/mipmap-xhdpi/ic_launcher.png', content: getIconBase64() },
-    { path: 'android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png', content: getIconBase64() },
-    { path: 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png', content: getIconBase64() },
     { path: 'android/app/src/main/kotlin/com/example/app/MainActivity.kt', content: getMainActivity() },
     { path: 'android/app/src/main/AndroidManifest.xml', content: getAndroidManifest(appIdea) },
     { path: '.github/workflows/build.yml', content: getWorkflowContent() }
@@ -409,21 +404,12 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     var file = files[i];
     try {
       console.log('📄 Criando: ' + file.path);
-      
-      // Se for imagem PNG, o content já é base64
-      var contentBase64;
-      if (file.path.endsWith('.png')) {
-        contentBase64 = file.content; // já é base64
-      } else {
-        contentBase64 = Buffer.from(file.content).toString('base64');
-      }
-      
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: owner,
         repo: repo,
         path: file.path,
         message: 'Add ' + file.path,
-        content: contentBase64
+        content: Buffer.from(file.content).toString('base64')
       });
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
@@ -642,15 +628,14 @@ function getMainActivity() {
   return content;
 }
 
-// CORRIGIDO: AndroidManifest com Flutter V2 Embedding correto
+// CORRIGIDO: AndroidManifest SEM referência a ícone customizado
 function getAndroidManifest(appName) {
   var cleanName = appName.substring(0, 30).replace(/[<>&"']/g, '');
   
   var content = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n';
   content += '    <application\n';
   content += '        android:label="' + cleanName + '"\n';
-  content += '        android:name="${applicationName}"\n';
-  content += '        android:icon="@mipmap/ic_launcher">\n';
+  content += '        android:name="${applicationName}">\n';
   content += '        <activity\n';
   content += '            android:name=".MainActivity"\n';
   content += '            android:exported="true"\n';
@@ -675,12 +660,6 @@ function getAndroidManifest(appName) {
   content += '    <uses-permission android:name="android.permission.INTERNET"/>\n';
   content += '</manifest>\n';
   return content;
-}
-
-// Ícone PNG 48x48 simples em base64 (quadrado azul com círculo branco)
-function getIconBase64() {
-  // Este é um PNG válido de 48x48 pixels - ícone azul simples
-  return 'iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAABN0lEQVR4nO2ZwQ6CMBCGZ8b3f0sDvoGJZ+ON6MnE+ADeuBgvgjG+iMYHwIuJ8SDBmSxhgFKgBUr5k+ZA2P/r7hQopSiKoiiKoihKDrAdAGwAbAGsAKwBLAAsAMwBzABMAUwATACMAYwADJE4PQB9AHcAByAFsAfQA9AB0AZwKxgpBAC0ALQA3APYA2kC6ABoAbgH8gCkA6AFoA3gEcgTQAtAG8AzkBeAFoAWgBaAHoA+gD6ANwBvIN4BvAF9AH0AfQB9AH0AbwDeQHwAeAPxCeATxBeAbyCuQHwDeAN6B/oGeg+gD6D3APoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA+gD6AIYAhgBGAEYAxgDGACYAJgCmAKYAZgBmAOYA5gAWABYAlgCWAFYAVgDWihFO+AVz1mTg5PyyIwAAAABJRU5ErkJggg==';
 }
 
 function getWorkflowContent() {
@@ -729,7 +708,7 @@ function getWorkflowContent() {
 app.listen(PORT, function() {
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════╗');
-  console.log('║  🚀 Fábrica de Apps Backend v3.0                      ║');
+  console.log('║  🚀 Fábrica de Apps Backend v3.1                      ║');
   console.log('║  📍 Porta: ' + PORT + '                                       ║');
   console.log('╠═══════════════════════════════════════════════════════╣');
   console.log('║  Claude API: ' + (process.env.CLAUDE_API_KEY ? '✅ Configurada' : '❌ Não configurada') + '                      ║');
