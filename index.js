@@ -434,7 +434,6 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
     { path: '.github/workflows/build.yml', content: getWorkflowContent() },
     { path: 'android/app/src/main/res/values/styles.xml', content: getStylesXml() },
     { path: 'android/app/src/main/res/drawable/launch_background.xml', content: getLaunchBackground() },
-    { path: 'android/app/src/main/res/drawable/ic_launcher.xml', content: getIconXml() },
   ];
 
   for (const file of files) {
@@ -658,14 +657,9 @@ function getAndroidManifest(appName) {
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
