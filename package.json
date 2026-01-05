@@ -1,7 +1,7 @@
 {
   "name": "fabrica-apps-backend",
-  "version": "1.0.0",
-  "description": "Backend para Fábrica de Apps - Gerador automático de apps Flutter",
+  "version": "1.0.1",
+  "description": "Backend para Fábrica de Apps - Gerador automático de apps",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
