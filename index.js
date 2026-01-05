@@ -154,22 +154,219 @@ async function generateWithGemini(appIdea, trialDays) {
 
 // Prompt unificado
 function getPrompt(appIdea, trialDays) {
-  return `Gere um app Flutter COMPLETO e FUNCIONAL para: ${appIdea}
+  return 'Atue como um desenvolvedor Flutter sênior.
 
-IMPORTANTE - Sistema de Trial de ${trialDays} dias:
+Gere EXCLUSIVAMENTE o conteúdo do arquivo: lib/main.dart
 
-Adicione estas dependências no pubspec.yaml:
-- shared_preferences: ^2.2.2
-- crypto: ^3.0.3
+NÃO gere:
+- projeto Flutter completo
+- pasta android/, ios/, web/, windows/
+- arquivos Gradle, Kotlin ou configurações nativas
+- instruções de build
 
-Integre o sistema de licenciamento com:
-- Trial de ${trialDays} dias
-- Banner mostrando dias restantes
-- Tela de bloqueio quando expirar
-- Validação de chave de licença (formato: XXXX-XXXX-XXXX-XXXX)
+O código DEVE:
+- Ser compatível com Flutter stable atual
+- Funcionar quando colado em um projeto criado com: flutter create nome_do_app
+- Usar Material Design 3
+- Ter código limpo, organizado e funcional
+- Usar apenas Flutter SDK padrão + dependências declaradas
 
-Use Material Design 3, código limpo e funcional.
-Responda APENAS com o código completo do main.dart.`;
+--------------------------------------------------
+DEPENDÊNCIAS (já no pubspec.yaml - NÃO altere)
+--------------------------------------------------
+shared_preferences: ^2.2.2
+crypto: ^3.0.3
+
+--------------------------------------------------
+SISTEMA DE TRIAL / LICENÇA (OBRIGATÓRIO)
+--------------------------------------------------
+
+Copie EXATAMENTE este código do LicenseManager após os imports:
+
+${getLicenseManagerCode(trialDays)}
+
+--------------------------------------------------
+INTEGRAÇÃO OBRIGATÓRIA
+--------------------------------------------------
+
+1. Use este main():
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final licenseStatus = await LicenseManager.checkLicense();
+  runApp(MyApp(licenseStatus: licenseStatus));
+}
+
+2. O MaterialApp deve usar:
+home: licenseStatus == LicenseStatus.expired
+  ? LicenseBlockScreen()
+  : HomeScreen(licenseStatus: licenseStatus)
+
+3. Se estiver em trial, exibir TrialBanner no topo da HomeScreen
+
+--------------------------------------------------
+APP SOLICITADO
+--------------------------------------------------
+${appIdea}
+
+--------------------------------------------------
+FORMATO DE RESPOSTA
+--------------------------------------------------
+- APENAS código Dart puro
+- SEM \`\`\`dart no início
+- SEM \`\`\` no final  
+- SEM explicações ou comentários extras
+- Comece direto com: import 'package:flutter/material.dart';
+- Termine com o último } da classe`;
+}
+
+function getLicenseManagerCode(trialDays) {
+  return `// ===== SISTEMA DE LICENÇA E TRIAL =====
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+
+class LicenseManager {
+  static const String _firstRunKey = 'first_run_date';
+  static const String _licenseKey = 'license_key';
+  static const int _trialDays = ${trialDays};
+  static const String _secretKey = 'SECRET_${Date.now()}';
+
+  static Future<LicenseStatus> checkLicense() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedLicense = prefs.getString(_licenseKey);
+    if (storedLicense != null) return LicenseStatus.licensed;
+    
+    final firstRunString = prefs.getString(_firstRunKey);
+    if (firstRunString == null) {
+      await prefs.setString(_firstRunKey, DateTime.now().toIso8601String());
+      return LicenseStatus.trial;
+    }
+    
+    final firstRun = DateTime.parse(firstRunString);
+    final daysPassed = DateTime.now().difference(firstRun).inDays;
+    return daysPassed < _trialDays ? LicenseStatus.trial : LicenseStatus.expired;
+  }
+
+  static Future<int> getDaysRemaining() async {
+    final prefs = await SharedPreferences.getInstance();
+    final firstRunString = prefs.getString(_firstRunKey);
+    if (firstRunString == null) return _trialDays;
+    final firstRun = DateTime.parse(firstRunString);
+    final daysPassed = DateTime.now().difference(firstRun).inDays;
+    return (_trialDays - daysPassed).clamp(0, _trialDays);
+  }
+
+  static Future<bool> activateLicense(String license) async {
+    if (license.length == 19) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_licenseKey, license);
+      return true;
+    }
+    return false;
+  }
+}
+
+enum LicenseStatus { trial, licensed, expired }
+
+class LicenseBlockScreen extends StatefulWidget {
+  @override
+  _LicenseBlockScreenState createState() => _LicenseBlockScreenState();
+}
+
+class _LicenseBlockScreenState extends State<LicenseBlockScreen> {
+  final _controller = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  void _activate() async {
+    setState(() { _loading = true; _error = null; });
+    await Future.delayed(Duration(seconds: 1));
+    final success = await LicenseManager.activateLicense(_controller.text.trim().toUpperCase());
+    if (success) {
+      Navigator.of(context).pushReplacementNamed('/');
+    } else {
+      setState(() { _error = 'Chave inválida!'; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.red.shade900, Colors.red.shade700],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline, size: 80, color: Colors.white),
+                SizedBox(height: 30),
+                Text('Período de Teste Expirado', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center),
+                SizedBox(height: 16),
+                Text('Seu período de ${trialDays} dias terminou.\\nInsira uma chave de licença.', style: TextStyle(fontSize: 16, color: Colors.white70), textAlign: TextAlign.center),
+                SizedBox(height: 50),
+                TextField(
+                  controller: _controller,
+                  decoration: InputDecoration(
+                    labelText: 'Chave de Licença',
+                    hintText: 'XXXX-XXXX-XXXX-XXXX',
+                    prefixIcon: Icon(Icons.vpn_key),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    errorText: _error,
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 19,
+                  enabled: !_loading,
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _activate,
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    child: _loading ? CircularProgressIndicator(color: Colors.white) : Text('Ativar Licença', style: TextStyle(fontSize: 18, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TrialBanner extends StatelessWidget {
+  final int daysRemaining;
+  const TrialBanner({required this.daysRemaining});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.orange.shade700, Colors.orange.shade500])),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.access_time, color: Colors.white, size: 20),
+          SizedBox(width: 8),
+          Text('Teste: $daysRemaining dia${daysRemaining == 1 ? "" : "s"} restante${daysRemaining == 1 ? "" : "s"}', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+}';
 }
 
 // Criar repositório
@@ -370,6 +567,16 @@ android.enableJetifier=true
 
 function getSettingsGradle() {
   return `pluginManagement {
+    def flutterSdkPath = {
+        def properties = new Properties()
+        file("local.properties").withInputStream { properties.load(it) }
+        def flutterSdkPath = properties.getProperty("flutter.sdk")
+        assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
+        return flutterSdkPath
+    }()
+
+    includeBuild("\${flutterSdkPath}/packages/flutter_tools/gradle")
+
     repositories {
         google()
         mavenCentral()
@@ -378,9 +585,7 @@ function getSettingsGradle() {
 }
 
 plugins {
-    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-    id "com.android.application" version "8.1.0" apply false
-    id "org.jetbrains.kotlin.android" version "1.9.0" apply false
+    id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
 }
 
 include ":app"
