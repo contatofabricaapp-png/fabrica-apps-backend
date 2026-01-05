@@ -418,41 +418,61 @@ async function createCompleteFlutterStructure(repoData, mainDartCode, appIdea) {
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
   const [owner, repo] = [repoData.owner.login, repoData.name];
 
+  // CORREÇÃO: Adicionados arquivos .gitkeep para forçar a criação das pastas de recursos.
+  // A ordem é importante: primeiro criamos as pastas, depois os arquivos dentro delas.
   const files = [
+    // 1. Arquivos de configuração e estrutura básica
     { path: 'pubspec.yaml', content: getPubspecContent(appIdea) },
     { path: 'analysis_options.yaml', content: getAnalysisOptions() },
     { path: '.gitignore', content: getGitignore() },
     { path: 'README.md', content: getReadme(appIdea) },
     { path: 'lib/main.dart', content: mainDartCode },
+    
+    // 2. Arquivos de configuração do Android/Gradle
     { path: 'android/app/build.gradle', content: getAppBuildGradle() },
     { path: 'android/build.gradle', content: getRootBuildGradle() },
     { path: 'android/gradle.properties', content: getGradleProperties() },
     { path: 'android/settings.gradle', content: getSettingsGradle() },
-    { path: 'android/app/src/main/AndroidManifest.xml', content: getAndroidManifest(appIdea) },
     { path: 'android/app/src/main/kotlin/com/example/app/MainActivity.kt', content: getMainActivity() },
     { path: 'android/gradle/wrapper/gradle-wrapper.properties', content: getGradleWrapperProperties() },
     { path: '.github/workflows/build.yml', content: getWorkflowContent() },
+
+    // 3. Forçar a criação das pastas de recursos com arquivos .gitkeep
+    { path: 'android/app/src/main/res/drawable/.gitkeep', content: '' },
+    { path: 'android/app/src/main/res/values/.gitkeep', content: '' },
+    { path: 'android/app/src/main/res/mipmap-anydpi-v26/.gitkeep', content: '' },
+
+    // 4. Agora, criar os arquivos de recursos dentro das pastas que já existem
     { path: 'android/app/src/main/res/values/styles.xml', content: getStylesXml() },
     { path: 'android/app/src/main/res/drawable/launch_background.xml', content: getLaunchBackground() },
-    // CORREÇÃO APLICADA AQUI: O ícone agora é criado na pasta mipmap correta.
     { path: 'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml', content: getIconXml() },
+
+    // 5. Por último, o AndroidManifest que depende de todos os recursos acima
+    { path: 'android/app/src/main/AndroidManifest.xml', content: getAndroidManifest(appIdea) },
   ];
 
   for (const file of files) {
     try {
+      // Adiciona um pequeno log para acompanhar o processo
+      console.log(`📄 Criando arquivo: ${file.path}`);
       await octokit.rest.repos.createOrUpdateFileContents({
         owner,
         repo,
         path: file.path,
         message: `Add ${file.path}`,
-        content: Buffer.from(file.content).toString('base64')
+        // Para o .gitkeep, o conteúdo é vazio, então usamos Buffer.from('')
+        content: Buffer.from(file.content || '').toString('base64')
       });
+      // Mantém um pequeno delay para evitar sobrecarregar a API do GitHub
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
-      console.error(`Erro ao criar ${file.path}:`, error.message);
+      console.error(`❌ Erro ao criar ${file.path}:`, error.message);
+      // Se um arquivo falhar, é útil saber qual foi
+      // Você pode decidir se quer parar o processo ou continuar
     }
   }
 }
+
 
 function getPubspecContent(appName) {
   const cleanName = appName.substring(0, 30).toLowerCase().replace(/[^a-z0-9]/g, '_');
