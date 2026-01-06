@@ -182,18 +182,59 @@ async function generateWithGemini(appIdea, trialDays) {
 }
 
 // ============================================
-// PROMPT OTIMIZADO
+// PROMPT OTIMIZADO V2 - APPS FUNCIONAIS
 // ============================================
 function getPrompt(appIdea, trialDays) {
-  var prompt = 'Gere um arquivo main.dart COMPLETO e COMPILAVEL para Flutter.\n\n';
-  prompt += 'APP SOLICITADO: ' + appIdea + '\n\n';
-  prompt += 'ESTRUTURA OBRIGATORIA - Siga EXATAMENTE:\n\n';
+  var prompt = '';
   
-  prompt += '1. IMPORTS (apenas estes dois):\n';
+  // INTRODUCAO
+  prompt += 'Voce e um desenvolvedor Flutter SENIOR. Gere um main.dart COMPLETO, FUNCIONAL e COMPILAVEL.\n\n';
+  
+  // APP SOLICITADO
+  prompt += '=== APP SOLICITADO ===\n';
+  prompt += appIdea + '\n\n';
+  
+  // IMPORTS
+  prompt += '=== 1. IMPORTS (use exatamente) ===\n';
   prompt += 'import \'package:flutter/material.dart\';\n';
-  prompt += 'import \'package:shared_preferences/shared_preferences.dart\';\n\n';
+  prompt += 'import \'package:shared_preferences/shared_preferences.dart\';\n';
+  prompt += 'import \'dart:convert\';\n\n';
   
-  prompt += '2. SISTEMA DE LICENCAS (copie exatamente apos os imports):\n\n';
+  // BANCO DE DADOS LOCAL
+  prompt += '=== 2. BANCO DE DADOS LOCAL (copie exatamente) ===\n\n';
+  prompt += 'class LocalDatabase {\n';
+  prompt += '  static Future<SharedPreferences> get _prefs async => await SharedPreferences.getInstance();\n\n';
+  prompt += '  static Future<List<Map<String, dynamic>>> getAll(String table) async {\n';
+  prompt += '    final prefs = await _prefs;\n';
+  prompt += '    final data = prefs.getString(table);\n';
+  prompt += '    if (data == null) return [];\n';
+  prompt += '    return List<Map<String, dynamic>>.from(jsonDecode(data));\n';
+  prompt += '  }\n\n';
+  prompt += '  static Future<void> saveAll(String table, List<Map<String, dynamic>> items) async {\n';
+  prompt += '    final prefs = await _prefs;\n';
+  prompt += '    await prefs.setString(table, jsonEncode(items));\n';
+  prompt += '  }\n\n';
+  prompt += '  static Future<void> insert(String table, Map<String, dynamic> item) async {\n';
+  prompt += '    final items = await getAll(table);\n';
+  prompt += '    item[\'id\'] = DateTime.now().millisecondsSinceEpoch.toString();\n';
+  prompt += '    item[\'createdAt\'] = DateTime.now().toIso8601String();\n';
+  prompt += '    items.add(item);\n';
+  prompt += '    await saveAll(table, items);\n';
+  prompt += '  }\n\n';
+  prompt += '  static Future<void> update(String table, String id, Map<String, dynamic> item) async {\n';
+  prompt += '    final items = await getAll(table);\n';
+  prompt += '    final index = items.indexWhere((e) => e[\'id\'] == id);\n';
+  prompt += '    if (index != -1) { item[\'id\'] = id; items[index] = item; await saveAll(table, items); }\n';
+  prompt += '  }\n\n';
+  prompt += '  static Future<void> delete(String table, String id) async {\n';
+  prompt += '    final items = await getAll(table);\n';
+  prompt += '    items.removeWhere((e) => e[\'id\'] == id);\n';
+  prompt += '    await saveAll(table, items);\n';
+  prompt += '  }\n';
+  prompt += '}\n\n';
+  
+  // SISTEMA DE LICENCAS
+  prompt += '=== 3. SISTEMA DE LICENCAS (copie exatamente) ===\n\n';
   prompt += 'enum LicenseStatus { trial, licensed, expired }\n\n';
   prompt += 'class LicenseManager {\n';
   prompt += '  static const String _firstRunKey = \'app_first_run\';\n';
@@ -230,21 +271,18 @@ function getPrompt(appIdea, trialDays) {
   prompt += '  }\n';
   prompt += '}\n\n';
   
-  prompt += '3. WIDGETS DO SISTEMA (copie exatamente):\n\n';
+  // WIDGETS DO SISTEMA
+  prompt += '=== 4. WIDGETS DO SISTEMA (copie exatamente) ===\n\n';
   prompt += 'class TrialBanner extends StatelessWidget {\n';
   prompt += '  final int daysRemaining;\n';
-  prompt += '  const TrialBanner({super.key, required this.daysRemaining});\n\n';
+  prompt += '  const TrialBanner({super.key, required this.daysRemaining});\n';
   prompt += '  @override\n';
   prompt += '  Widget build(BuildContext context) {\n';
   prompt += '    return Container(\n';
   prompt += '      width: double.infinity,\n';
-  prompt += '      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),\n';
+  prompt += '      padding: const EdgeInsets.all(8),\n';
   prompt += '      color: daysRemaining <= 2 ? Colors.red : Colors.orange,\n';
-  prompt += '      child: Text(\n';
-  prompt += '        \'Periodo de teste: \' + daysRemaining.toString() + \' dias restantes\',\n';
-  prompt += '        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),\n';
-  prompt += '        textAlign: TextAlign.center,\n';
-  prompt += '      ),\n';
+  prompt += '      child: Text(\'Teste: \' + daysRemaining.toString() + \' dias restantes\', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),\n';
   prompt += '    );\n';
   prompt += '  }\n';
   prompt += '}\n\n';
@@ -254,63 +292,34 @@ function getPrompt(appIdea, trialDays) {
   prompt += '  @override\n';
   prompt += '  State<LicenseExpiredScreen> createState() => _LicenseExpiredScreenState();\n';
   prompt += '}\n\n';
-  
   prompt += 'class _LicenseExpiredScreenState extends State<LicenseExpiredScreen> {\n';
   prompt += '  final _ctrl = TextEditingController();\n';
   prompt += '  bool _loading = false;\n';
-  prompt += '  String? _error;\n\n';
+  prompt += '  String? _error;\n';
   prompt += '  Future<void> _activate() async {\n';
   prompt += '    setState(() { _loading = true; _error = null; });\n';
-  prompt += '    await Future.delayed(const Duration(milliseconds: 500));\n';
   prompt += '    final ok = await LicenseManager.activate(_ctrl.text);\n';
-  prompt += '    if (ok && mounted) {\n';
-  prompt += '      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RestartApp()));\n';
-  prompt += '    } else if (mounted) {\n';
-  prompt += '      setState(() { _error = \'Chave invalida\'; _loading = false; });\n';
-  prompt += '    }\n';
-  prompt += '  }\n\n';
+  prompt += '    if (ok && mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RestartApp()));\n';
+  prompt += '    else if (mounted) setState(() { _error = \'Chave invalida\'; _loading = false; });\n';
+  prompt += '  }\n';
   prompt += '  @override\n';
   prompt += '  Widget build(BuildContext context) {\n';
-  prompt += '    return Scaffold(\n';
-  prompt += '      body: Container(\n';
-  prompt += '        decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.red.shade800, Colors.red.shade600], begin: Alignment.topCenter, end: Alignment.bottomCenter)),\n';
-  prompt += '        child: SafeArea(\n';
-  prompt += '          child: Padding(\n';
-  prompt += '            padding: const EdgeInsets.all(24),\n';
-  prompt += '            child: Column(\n';
-  prompt += '              mainAxisAlignment: MainAxisAlignment.center,\n';
-  prompt += '              children: [\n';
-  prompt += '                const Icon(Icons.lock, size: 80, color: Colors.white),\n';
-  prompt += '                const SizedBox(height: 24),\n';
-  prompt += '                const Text(\'Periodo de Teste Encerrado\', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),\n';
-  prompt += '                const SizedBox(height: 32),\n';
-  prompt += '                TextField(controller: _ctrl, decoration: InputDecoration(labelText: \'Chave de Licenca\', hintText: \'XXXX-XXXX-XXXX-XXXX\', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), errorText: _error), textCapitalization: TextCapitalization.characters, maxLength: 19),\n';
-  prompt += '                const SizedBox(height: 16),\n';
-  prompt += '                SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _loading ? null : _activate, style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16), backgroundColor: Colors.green), child: _loading ? const CircularProgressIndicator(color: Colors.white) : const Text(\'Ativar\', style: TextStyle(fontSize: 18, color: Colors.white)))),\n';
-  prompt += '              ],\n';
-  prompt += '            ),\n';
-  prompt += '          ),\n';
-  prompt += '        ),\n';
-  prompt += '      ),\n';
-  prompt += '    );\n';
+  prompt += '    return Scaffold(body: Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.red.shade800, Colors.red.shade600])), child: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.lock, size: 80, color: Colors.white), const SizedBox(height: 24), const Text(\'Periodo Expirado\', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)), const SizedBox(height: 32), TextField(controller: _ctrl, decoration: InputDecoration(labelText: \'Chave\', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), errorText: _error), maxLength: 19), const SizedBox(height: 16), ElevatedButton(onPressed: _loading ? null : _activate, child: _loading ? const CircularProgressIndicator() : const Text(\'Ativar\'))])))));\n';
   prompt += '  }\n';
   prompt += '}\n\n';
-  
   prompt += 'class RestartApp extends StatelessWidget {\n';
   prompt += '  const RestartApp({super.key});\n';
   prompt += '  @override\n';
   prompt += '  Widget build(BuildContext context) {\n';
-  prompt += '    return FutureBuilder<List<dynamic>>(\n';
-  prompt += '      future: Future.wait([LicenseManager.checkLicense(), LicenseManager.getRemainingDays()]),\n';
-  prompt += '      builder: (context, snap) {\n';
-  prompt += '        if (!snap.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));\n';
-  prompt += '        return MyApp(licenseStatus: snap.data![0] as LicenseStatus, remainingDays: snap.data![1] as int);\n';
-  prompt += '      },\n';
-  prompt += '    );\n';
+  prompt += '    return FutureBuilder<List<dynamic>>(future: Future.wait([LicenseManager.checkLicense(), LicenseManager.getRemainingDays()]), builder: (context, snap) {\n';
+  prompt += '      if (!snap.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));\n';
+  prompt += '      return MyApp(licenseStatus: snap.data![0] as LicenseStatus, remainingDays: snap.data![1] as int);\n';
+  prompt += '    });\n';
   prompt += '  }\n';
   prompt += '}\n\n';
   
-  prompt += '4. MAIN (copie exatamente):\n\n';
+  // MAIN
+  prompt += '=== 5. MAIN (copie exatamente) ===\n\n';
   prompt += 'void main() async {\n';
   prompt += '  WidgetsFlutterBinding.ensureInitialized();\n';
   prompt += '  final status = await LicenseManager.checkLicense();\n';
@@ -318,37 +327,60 @@ function getPrompt(appIdea, trialDays) {
   prompt += '  runApp(MyApp(licenseStatus: status, remainingDays: days));\n';
   prompt += '}\n\n';
   
-  prompt += '5. MYAPP (copie exatamente):\n\n';
+  // MYAPP
+  prompt += '=== 6. MYAPP (copie exatamente) ===\n\n';
   prompt += 'class MyApp extends StatelessWidget {\n';
   prompt += '  final LicenseStatus licenseStatus;\n';
   prompt += '  final int remainingDays;\n';
-  prompt += '  const MyApp({super.key, required this.licenseStatus, required this.remainingDays});\n\n';
+  prompt += '  const MyApp({super.key, required this.licenseStatus, required this.remainingDays});\n';
   prompt += '  @override\n';
   prompt += '  Widget build(BuildContext context) {\n';
   prompt += '    return MaterialApp(\n';
   prompt += '      title: \'App\',\n';
   prompt += '      debugShowCheckedModeBanner: false,\n';
-  prompt += '      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue), useMaterial3: true),\n';
+  prompt += '      theme: ThemeData.dark().copyWith(\n';
+  prompt += '        colorScheme: ColorScheme.dark(primary: Colors.purple, secondary: Colors.purpleAccent),\n';
+  prompt += '        scaffoldBackgroundColor: const Color(0xFF1a1a2e),\n';
+  prompt += '        cardColor: const Color(0xFF16213e),\n';
+  prompt += '        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF0f0f1a)),\n';
+  prompt += '      ),\n';
   prompt += '      home: licenseStatus == LicenseStatus.expired ? const LicenseExpiredScreen() : HomeScreen(licenseStatus: licenseStatus, remainingDays: remainingDays),\n';
   prompt += '    );\n';
   prompt += '  }\n';
   prompt += '}\n\n';
   
-  prompt += '6. HOMESCREEN - Crie a tela principal do app com as funcionalidades solicitadas.\n';
-  prompt += 'A HomeScreen DEVE receber licenseStatus e remainingDays como parametros.\n';
-  prompt += 'DEVE mostrar TrialBanner no topo se licenseStatus == LicenseStatus.trial.\n\n';
+  // INSTRUCOES PARA AS TELAS
+  prompt += '=== 7. AGORA CRIE AS TELAS DO APP ===\n\n';
+  prompt += 'REGRAS OBRIGATORIAS:\n\n';
+  prompt += '1. HomeScreen com BottomNavigationBar para navegar entre as telas principais\n';
+  prompt += '2. Cada tela deve ter funcionalidades CRUD completas:\n';
+  prompt += '   - CRIAR: Formulario com campos, botao salvar que usa LocalDatabase.insert()\n';
+  prompt += '   - LISTAR: ListView.builder carregando dados de LocalDatabase.getAll()\n';
+  prompt += '   - EDITAR: Mesma tela de criar, pre-preenchida, usando LocalDatabase.update()\n';
+  prompt += '   - DELETAR: Confirmacao e LocalDatabase.delete()\n';
+  prompt += '3. Use showModalBottomSheet ou showDialog para formularios\n';
+  prompt += '4. Mostre TrialBanner no topo se licenseStatus == LicenseStatus.trial\n';
+  prompt += '5. Carregue dados no initState() com setState()\n';
+  prompt += '6. Use tabelas separadas: \'clientes\', \'agendamentos\', \'servicos\', etc\n';
+  prompt += '7. Campos de formulario com TextEditingController\n';
+  prompt += '8. Validacao de campos obrigatorios\n';
+  prompt += '9. Feedback visual: SnackBar ao salvar/deletar\n';
+  prompt += '10. FloatingActionButton para adicionar novos itens\n\n';
   
-  prompt += 'REGRAS IMPORTANTES:\n';
-  prompt += '- Codigo DEVE compilar sem erros\n';
+  prompt += 'ESTRUTURA DE DADOS (exemplos de Map):\n';
+  prompt += '- Cliente: {id, nome, telefone, email, observacoes, createdAt}\n';
+  prompt += '- Agendamento: {id, clienteId, clienteNome, data, hora, servico, valor, status, createdAt}\n';
+  prompt += '- Servico: {id, nome, preco, duracao, createdAt}\n\n';
+  
+  prompt += 'CODIGO LIMPO:\n';
+  prompt += '- Maximo 600 linhas\n';
   prompt += '- Feche TODAS as chaves e parenteses\n';
-  prompt += '- Maximo 350 linhas\n';
-  prompt += '- Use dados mockados em listas\n';
-  prompt += '- NAO use ... para abreviar\n';
-  prompt += '- Implemente funcionalidades simples mas funcionais\n\n';
+  prompt += '- NAO abrevie com ...\n';
+  prompt += '- Codigo DEVE compilar\n\n';
   
-  prompt += 'Responda APENAS com codigo Dart puro.\n';
-  prompt += 'SEM crases, SEM markdown, SEM explicacoes.\n';
-  prompt += 'Comece com: import \'package:flutter/material.dart\';';
+  prompt += 'Responda APENAS com codigo Dart.\n';
+  prompt += 'SEM markdown, SEM explicacoes.\n';
+  prompt += 'Comece com: import \'package:flutter/material.dart\';\n';
   
   return prompt;
 }
@@ -708,7 +740,7 @@ function getWorkflowContent() {
 app.listen(PORT, function() {
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════╗');
-  console.log('║  🚀 Fábrica de Apps Backend v3.1                      ║');
+  console.log('║  🚀 Fábrica de Apps Backend v3.0                      ║');
   console.log('║  📍 Porta: ' + PORT + '                                       ║');
   console.log('╠═══════════════════════════════════════════════════════╣');
   console.log('║  Claude API: ' + (process.env.CLAUDE_API_KEY ? '✅ Configurada' : '❌ Não configurada') + '                      ║');
